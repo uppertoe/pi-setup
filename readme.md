@@ -2,21 +2,19 @@
 ### Install Raspbian OS
 Follow the instructions on the [Raspberry Pi website](https://www.raspberrypi.com/documentation/computers/getting-started.html#raspberry-pi-imager) to add the latest Raspbian OS to a micro SD card
 
-### Update Raspbian OS
-`sudo apt update`
+### Set up SSH keys
+Run the `setup_remote_ssh.sh` script on the remote computer
+- Remember to set the RPi's IP and username in the script before running
 
-`sudo apt full-upgrade`
+Use the resulting connect.sh to SSH in to the RPi
 
-# Git
-### Install Git
-`sudo apt install git -y`
+### Harden the RPi's security settings
+Run `sh secure_pi.sh`
+
+Note that SSH login with password authentication will no longer be possible
 
 ### Clone this repository
-`git init`
-
-`git remote add origin URL`
-
-`git pull`
+`git clone https://github.com/uppertoe/pi-setup.git`
 
 # Docker
 ### Install Docker
@@ -37,15 +35,8 @@ This pulls the latest Pihole, Nginx and Home Assistant containers:
 ### Get a static IP from your ISP
 If this is not possible, consider using [Duck DNS](https://www.duckdns.org/)
 
-### Create A records pointing to the IP
-One record for each service; these can be proxied by Cloudflare
-- pihole
-- homeassistant
-- calibre
-- static_site
-
-Wireguard should not be proxied by Cloudflare
-- wg
+### Create an A record pointing to the IP
+Simply send the wildcard apex domain * to the static IP; the reverse proxy will handle the subdomains.
 
 ### Forward ports on your router
 | Service | External Port | Internal IP | Internal Port | Protocol |

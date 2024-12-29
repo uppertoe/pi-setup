@@ -10,7 +10,7 @@ echo "Generating bcrypt hashed passwords..."
 # Function to generate bcrypt hash using htpasswd
 generate_hash() {
     # Usage: generate_hash username password
-    htpasswd -nbBC 12 "$1" "$2" | cut -d':' -f2
+    htpasswd -nbBC 12 "$1" "$2" | cut -d':' -f2 | sed 's/\$/$$/g'
 }
 
 # Generate hashes for Caddy basic_auth
