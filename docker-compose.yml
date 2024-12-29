@@ -26,14 +26,15 @@ services:
     env_file:
       - .env  # Use plain text password
     dns:
-      - 8.8.8.8
       - 1.1.1.1
+      - 8.8.8.8
     environment:
       TZ: "${TZ}"
       WEBPASSWORD: "${PIHOLE_WEBPASSWORD}"  # Plain text password
       FTLCONF_LOCAL_IPV4: "${PIHOLE_LOCAL_IPV4}"
     networks:
       - caddy-net
+      - wg-net
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -46,6 +47,31 @@ services:
     restart: unless-stopped
     depends_on:
       - caddy
+
+  # WireGuard (VPN Service)
+  wireguard:
+    container_name: wireguard
+    image: lscr.io/linuxserver/wireguard:latest
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - SERVERURL=${WIREGUARD_SERVERURL} # Public IP or domain
+      - SERVERPORT=51820
+      - PEERS=${WIREGUARD_PEERS}  # Number of client configs to generate
+      - PEERDNS=${PIHOLE_LOCAL_IPV4} # Pi-hole DNS server IP
+      - INTERNAL_SUBNET=10.0.0.0/24
+    volumes:
+      - ./wireguard/config:/config
+      - /lib/modules:/lib/modules
+    networks:
+      - wg-net
+    ports:
+      - "51820:51820/udp"
+    restart: unless-stopped
 
   # Home Assistant
   homeassistant:
@@ -120,7 +146,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: "${WIREGUARD_NETWORK}"
+        - subnet: 10.0.0.0/24
 
 volumes:
   caddy_data:
