@@ -9,9 +9,13 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Step 1: Run the hash generator container to create .env.caddy
+# Step 1: Build the hash generator image
+echo "Build hash generator"
+docker build --network=host -t hashgen:latest ./hash_generator
+
+# Step 2: Run the hash generator container to create .env.caddy
 echo "Running hash generator..."
-docker compose run --rm hashgen
+docker compose -f docker-compose.hashgen.yml run --rm hashgen
 
 # Verify that .env.caddy was created
 if [ ! -f hashes/.env.caddy ]; then
@@ -19,7 +23,7 @@ if [ ! -f hashes/.env.caddy ]; then
     exit 1
 fi
 
-# Step 2: Start all services
+# Step 3: Start all services
 echo "Starting Docker Compose services..."
 docker compose up -d
 

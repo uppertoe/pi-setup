@@ -1,17 +1,6 @@
 version: "3.8"
 
 services:
-  # Hash Generator
-  hashgen:
-    image: hashgen:latest
-    container_name: hashgen
-    env_file:
-      - .env
-    volumes:
-      - ./hashes:/hashes  # Bind mount to host for .env.caddy
-    entrypoint: ["/hash_generator.sh"]
-    restart: "no"  # Run once
-
   # Caddy (Reverse Proxy with Let's Encrypt)
   caddy:
     image: caddy:latest
@@ -19,8 +8,6 @@ services:
     env_file:
       - .env
       - ./hashes/.env.caddy  # Use the generated hashed passwords
-    depends_on:
-      - hashgen  # Ensure hashgen runs before Caddy
     networks:
       - caddy-net
     restart: unless-stopped

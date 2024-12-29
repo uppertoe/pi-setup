@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  hashgen:
+    image: hashgen:latest
+    container_name: hashgen
+    env_file:
+      - .env
+    volumes:
+      - ./hashes:/hashes  # Bind mount for .env.caddy
+    entrypoint: ["/hash_generator.sh"]
+    restart: "no"
