@@ -1,0 +1,164 @@
+{
+    email {env.CADDY_EMAIL}        # Let's Encrypt registration email
+    auto_https on                   # Enables automatic HTTPS
+}
+
+# -------------------------------------
+# Pi-hole Admin Interface
+# -------------------------------------
+pihole.{env.DOMAIN} {
+    # Define matchers
+    @internal {
+        remote_ip {env.WIREGUARD_NETWORK}    # Requests from WireGuard VPN
+    }
+    
+    @external {
+        not remote_ip {env.WIREGUARD_NETWORK}    # Requests NOT from WireGuard VPN
+    }
+    
+    # Handle internal requests without authentication
+    handle @internal {
+        reverse_proxy pihole:8081
+    }
+    
+    # Handle external requests with Basic Auth
+    handle @external {
+        basicauth /admin {
+            admin {env.PIHOLE_WEBPASSWORD}    # Username: admin, Password from .env
+        }
+        
+        # Redirect root URL to /admin with Basic Auth
+        @root path /
+        redir @root /admin 301
+        
+        # Reverse proxy for Pi-hole admin interface
+        reverse_proxy /admin/* pihole:8081 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Port {server_port}
+            header_up X-Forwarded-Proto {scheme}
+        }
+        
+        # Optionally, proxy all other external requests to Pi-hole
+        reverse_proxy pihole:8081
+    }
+}
+
+# -------------------------------------
+# Home Assistant Interface
+# -------------------------------------
+homeassistant.{env.DOMAIN} {
+    # Define matchers
+    @internal {
+        remote_ip {env.WIREGUARD_NETWORK}    # Requests from WireGuard VPN
+    }
+    
+    @external {
+        not remote_ip {env.WIREGUARD_NETWORK}    # Requests NOT from WireGuard VPN
+    }
+    
+    # Handle internal requests without authentication
+    handle @internal {
+        reverse_proxy homeassistant:8123
+    }
+    
+    # Handle external requests with Basic Auth
+    handle @external {
+        # Optional: Enable Basic Authentication
+        basicauth / {
+            {env.HOMEASSISTANT_USERNAME} {env.HOMEASSISTANT_PASSWORD}
+        }
+    
+        # Reverse proxy for Home Assistant
+        reverse_proxy homeassistant:8123 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Port {server_port}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    
+        # Enforce HSTS (HTTP Strict Transport Security)
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        }
+    }
+}
+
+# -------------------------------------
+# Calibre-Web Interface
+# -------------------------------------
+calibre.{env.DOMAIN} {
+    # Define matchers
+    @internal {
+        remote_ip {env.WIREGUARD_NETWORK}    # Requests from WireGuard VPN
+    }
+    
+    @external {
+        not remote_ip {env.WIREGUARD_NETWORK}    # Requests NOT from WireGuard VPN
+    }
+    
+    # Handle internal requests without authentication
+    handle @internal {
+        reverse_proxy calibre:8082
+    }
+    
+    # Handle external requests with Basic Auth
+    handle @external {
+        basicauth / {
+            {env.CALIBRE_USERNAME} {env.CALIBRE_PASSWORD}
+        }
+    
+        # Reverse proxy for Calibre-Web
+        reverse_proxy calibre:8082 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Port {server_port}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    
+        # Enforce HSTS
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        }
+    }
+}
+
+# -------------------------------------
+# Static Site
+# -------------------------------------
+{env.STATIC_SITE_SUBDOMAIN}.{env.DOMAIN} {
+    # Define matchers
+    @internal {
+        remote_ip {env.WIREGUARD_NETWORK}    # Requests from WireGuard VPN
+    }
+    
+    @external {
+        not remote_ip {env.WIREGUARD_NETWORK}    # Requests NOT from WireGuard VPN
+    }
+    
+    # Handle internal requests without authentication
+    handle @internal {
+        reverse_proxy static_site:8083
+    }
+    
+    # Handle external requests with Basic Auth
+    handle @external {
+    
+        # Reverse proxy for Static Site
+        reverse_proxy static_site:8083 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Port {server_port}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    
+        # Enforce HSTS
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        }
+    }
+}

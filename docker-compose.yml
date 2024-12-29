@@ -1,0 +1,160 @@
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────────────────────
+  # Caddy (Reverse Proxy with Let's Encrypt)
+  # ─────────────────────────────────────────────────────────
+  caddy:
+    container_name: caddy
+    image: caddy:latest
+    environment:
+      - DOMAIN=${DOMAIN}
+      - CADDY_EMAIL=${CADDY_EMAIL}
+    networks:
+      - caddy-net  # Network exclusively for Caddy-proxied containers
+    restart: unless-stopped
+    ports:
+      - "80:80"         # HTTP
+      - "443:443"       # HTTPS
+      - "443:443/udp"   # QUIC protocol support
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # ─────────────────────────────────────────────────────────
+  # Pi-hole
+  # ─────────────────────────────────────────────────────────
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    environment:
+      TZ: "${TZ}"
+      WEBPASSWORD: "${PIHOLE_WEBPASSWORD}"
+      DNS1: "8.8.8.8"         # Upstream DNS server 1
+      DNS2: "1.1.1.1"         # Upstream DNS server 2
+      FTLCONF_LOCAL_IPV4: "${PIHOLE_LOCAL_IPV4}"
+      DNSMASQ_LISTENING: "all"
+    networks:
+      - caddy-net    # Connect Pi-hole to Caddy's network for web access
+      - wg-net       # Connect Pi-hole to WireGuard's network for VPN DNS
+    ports:
+      - "53:53/tcp"   # DNS TCP
+      - "53:53/udp"   # DNS UDP
+      - "853:853/tcp" # DNS-over-TLS
+      - "8081:80/tcp" # Pi-hole web admin interface, proxied by Caddy
+    volumes:
+      - './pihole/etc-pihole:/etc/pihole'
+      - './pihole/etc-dnsmasq.d:/etc/dnsmasq.d'
+      - './pihole/etc-lighttpd/external.conf:/etc/lighttpd/external.conf'  # Optional
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────
+  # WireGuard VPN
+  # ─────────────────────────────────────────────────────────
+  wireguard:
+    container_name: wireguard
+    image: linuxserver/wireguard:latest
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - SERVERURL=${WIREGUARD_SERVERURL}
+      - SERVERPORT=${WIREGUARD_SERVERPORT}
+      - PEERS=${WIREGUARD_PEERS}
+      - PEERDNS=${WIREGUARD_PEERDNS}
+      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK}
+    volumes:
+      - ./wireguard/config:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "${WIREGUARD_SERVERPORT}:${WIREGUARD_SERVERPORT}/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: unless-stopped
+    networks:
+      - wg-net
+
+  # ─────────────────────────────────────────────────────────
+  # Home Assistant
+  # ─────────────────────────────────────────────────────────
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    environment:
+      - TZ=${TZ}
+      - USERNAME=${HOMEASSISTANT_USERNAME}
+      - PASSWORD=${HOMEASSISTANT_PASSWORD}
+    networks:
+      - caddy-net
+    volumes:
+      - "./homeassistant/etc-homeassistant:/config"
+      - "/etc/localtime:/etc/localtime:ro"
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────
+  # Calibre (E-book Management)
+  # ─────────────────────────────────────────────────────────
+  calibre:
+    container_name: calibre
+    image: linuxserver/calibre:latest
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - CALIBRE_USERNAME=${CALIBRE_USERNAME}
+      - CALIBRE_PASSWORD=${CALIBRE_PASSWORD}
+    networks:
+      - caddy-net
+    restart: unless-stopped
+    ports:
+      - "8082:8080"  # Calibre-Web interface, proxied by Caddy
+    volumes:
+      - './calibre/config:/config'
+      - './calibre/library:/books'
+    depends_on:
+      - caddy
+
+  # ─────────────────────────────────────────────────────────
+  # Static Site (e.g., Simple HTML/CSS/JS)
+  # ─────────────────────────────────────────────────────────
+  static_site:
+    container_name: static_site
+    image: nginx:alpine
+    environment:
+      - STATIC_SITE_SUBDOMAIN=${STATIC_SITE_SUBDOMAIN}
+    networks:
+      - caddy-net
+    restart: unless-stopped
+    ports:
+      - "8083:80"  # Static site, proxied by Caddy
+    volumes:
+      - './static_site/html:/usr/share/nginx/html:ro'
+      - './static_site/nginx.conf:/etc/nginx/nginx.conf:ro'
+    depends_on:
+      - caddy
+
+networks:
+  caddy-net:
+    driver: bridge
+    name: caddy-net
+  wg-net:
+    driver: bridge
+    name: wg-net
+    ipam:
+      driver: default
+      config:
+        - subnet: ${WIREGUARD_NETWORK}  # WireGuard network subnet from .env
+
+volumes:
+  caddy_data:
+    external: false
+  caddy_config:
+    external: false
+  wireguard_config:
+    external: false
+  calibre_config:
+    external: false
