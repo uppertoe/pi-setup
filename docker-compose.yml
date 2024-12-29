@@ -25,14 +25,15 @@ services:
     image: pihole/pihole:latest
     env_file:
       - .env  # Use plain text password
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       TZ: "${TZ}"
       WEBPASSWORD: "${PIHOLE_WEBPASSWORD}"  # Plain text password
-      DNS1: "8.8.8.8"
-      DNS2: "1.1.1.1"
+      FTLCONF_LOCAL_IPV4: "${PIHOLE_LOCAL_IPV4}"
     networks:
       - caddy-net
-      - wg-net
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -112,6 +113,9 @@ services:
 networks:
   caddy-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
   wg-net:
     driver: bridge
     ipam:
